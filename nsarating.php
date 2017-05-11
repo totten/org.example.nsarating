@@ -153,6 +153,55 @@ function nsarating_civicrm_navigationMenu(&$menu) {
 function nsarating_civicrm_buildForm($formName, &$form) {
   // dpm(array($formName, $form));
   if ($formName == 'CRM_Activity_Form_Activity') {
-    Civi::resources()->addScriptFile('org.example.nsarating', 'js/activity.js');
+    Civi::resources()
+      ->addScriptFile('org.example.nsarating', 'js/activity.js')
+      ->addStyleFile('org.example.nsarating', 'css/activity.css');
+
   }
+}
+
+function nsarating_civicrm_postProcess($formName, &$form) {
+  if ($formName == 'CRM_Activity_Form_Activity') {
+    nsarating_lookup_security_rating($form->_activityId);
+  }
+}
+
+function nsarating_lookup_security_rating($activityId) {
+  $locField = 'custom_7';
+  $ratingField = 'custom_8';
+
+  $activity = civicrm_api3('Activity', 'getsingle', array(
+    'id' => $activityId,
+    'return' => array($locField, $ratingField, 'activity_type_id'),
+    'sequential' => 1,
+  ));
+
+  list ($lat, $long) = explode(',', $activity[$locField]);
+
+  $response = file_get_contents(sprintf(
+    'http://think.hm/secrate.php?activity_type=%s&long=%s&lat=%s',
+    urlencode($activity['activity_type_id']),
+    urlencode($long),
+    urlencode($lat)
+  ));
+
+  $responseData = json_decode($response, TRUE);
+
+  print_r(array(
+    'activity' => $activity,
+    '$responseData' => $responseData,
+  ));
+
+  civicrm_api3('Activity', 'create', array(
+    'id' => $activityId,
+    $ratingField => $responseData['color'],
+  ));
+}
+
+function nsarating_civicrm_post($op, $objectName, $objectId, &$objectRef) {
+//  dpm(array(__FUNCTION__, $op, $objectName, $objectId, $objectRef));
+}
+
+function nsarating_civicrm_custom($op, $groupID, $entityID, &$params) {
+//  dpm(array(__FUNCTION__, $op, $groupID, $entityID, &$params));
 }
